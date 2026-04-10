@@ -377,11 +377,6 @@ elif st.session_state["crawl_results"] or st.session_state["blog_meta"]:
 
     # 전체 CSV 다운로드
     blog_ids = list(results.keys())
-    all_df = pd.concat([pd.DataFrame(results[bid]) for bid in blog_ids])
-    csv_cols = ["블로그ID", "제목", "작성일", "노출여부", "URL"]
-    if any(bid in st.session_state["exposure_done"] for bid in blog_ids):
-        csv_cols.append("검색확인")
-    all_csv = all_df[csv_cols].to_csv(index=False).encode("utf-8-sig")
     dl_col1, dl_col2 = st.columns(2)
     with dl_col1:
         summary_csv = summary_df.to_csv(index=False).encode("utf-8-sig")
@@ -393,13 +388,19 @@ elif st.session_state["crawl_results"] or st.session_state["blog_meta"]:
             key="csv_summary",
         )
     with dl_col2:
-        st.download_button(
-            label="📥 전체 포스팅 CSV 다운로드",
-            data=all_csv,
-            file_name=f"blog_check_all_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv",
-            key="csv_all_top",
-        )
+        if blog_ids:
+            all_df = pd.concat([pd.DataFrame(results[bid]) for bid in blog_ids])
+            csv_cols = ["블로그ID", "제목", "작성일", "노출여부", "URL"]
+            if any(bid in st.session_state["exposure_done"] for bid in blog_ids):
+                csv_cols.append("검색확인")
+            all_csv = all_df[csv_cols].to_csv(index=False).encode("utf-8-sig")
+            st.download_button(
+                label="📥 전체 포스팅 CSV 다운로드",
+                data=all_csv,
+                file_name=f"blog_check_all_{datetime.now().strftime('%Y%m%d')}.csv",
+                mime="text/csv",
+                key="csv_all_top",
+            )
 
     st.markdown("---")
 
