@@ -376,6 +376,7 @@ elif st.session_state["crawl_results"] or st.session_state["blog_meta"]:
     st.dataframe(summary_df, use_container_width=True, hide_index=True)
 
     # 전체 CSV 다운로드
+    blog_ids = list(results.keys())
     all_df = pd.concat([pd.DataFrame(results[bid]) for bid in blog_ids])
     csv_cols = ["블로그ID", "제목", "작성일", "노출여부", "URL"]
     if any(bid in st.session_state["exposure_done"] for bid in blog_ids):
