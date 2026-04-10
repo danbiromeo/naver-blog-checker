@@ -191,9 +191,16 @@ if freq_button:
             st.session_state["exposure_done"] = set()
             st.session_state["blog_meta"] = {}
 
-            for blog_id in blog_ids:
+            stop_crawl = st.empty()
+            stop_crawl_btn = stop_crawl.button("⏹ 빈도 검사 중지", key="stop_crawl")
+
+            for idx, blog_id in enumerate(blog_ids):
+                if stop_crawl_btn:
+                    st.warning(f"⚠️ 빈도 검사 중지됨 ({idx}/{len(blog_ids)} 블로그 완료)")
+                    break
+
                 status_text = st.empty()
-                status_text.info(f"🔄 **{blog_id}** 크롤링 중...")
+                status_text.info(f"🔄 **{blog_id}** 크롤링 중... ({idx+1}/{len(blog_ids)})")
 
                 with st.spinner(f"{blog_id} 크롤링 중..."):
                     posts = crawl_blog_posts(
@@ -202,7 +209,12 @@ if freq_button:
                     )
 
                 if not posts:
-                    status_text.error(f"❌ {blog_id}: 글을 찾을 수 없습니다.")
+                    status_text.error(f"❌ {blog_id}: 블로그가 존재하지 않거나 글이 없습니다.")
+                    st.session_state["blog_meta"][blog_id] = {
+                        "total": 0,
+                        "first_date": "-",
+                        "status": "존재하지 않음",
+                    }
                     continue
 
                 total_posts = len(posts)
@@ -255,25 +267,47 @@ if not st.session_state["crawl_results"]:
     }
     st.dataframe(pd.DataFrame(example_data), use_container_width=True, hide_index=True)
 
-elif st.session_state["crawl_results"]:
+elif st.session_state["crawl_results"] or st.session_state["blog_meta"]:
     results = st.session_state["crawl_results"]
-    blog_ids = list(results.keys())
+    blog_meta = st.session_state["blog_meta"]
+    # 크롤링 결과 있는 블로그 + 존재하지 않는 블로그 모두 포함
+    all_blog_ids = list(dict.fromkeys(list(results.keys()) + list(blog_meta.keys())))
     period_label = get_period_label(st.session_state.get("period_option", "최근 15일"))
 
     # ── 블로그 비교 요약 테이블 ──
     st.markdown("### 블로그 비교 요약")
     summary_rows = []
-    for bid in blog_ids:
-        bdf = pd.DataFrame(results[bid])
+    for bid in all_blog_ids:
+        meta = blog_meta.get(bid, {})
+
+        # 존재하지 않는 블로그
+        if meta.get("status") == "존재하지 않음":
+            summary_rows.append({
+                "블로그ID": bid,
+                "상태": "존재하지 않음",
+                "전체 글 수": 0,
+                "첫 포스팅일": "-",
+                f"{period_label} 글 수": 0,
+                "일당 빈도": "-",
+                "주당 빈도": "-",
+                "노출": "-",
+                "미노출": "-",
+                "노출률(%)": "-",
+            })
+            continue
+
+        bdf = pd.DataFrame(results.get(bid, []))
+        if bdf.empty:
+            continue
         bdf["작성일_dt"] = pd.to_datetime(bdf["작성일"], errors="coerce")
         total = len(bdf)
         date_range = (bdf["작성일_dt"].max() - bdf["작성일_dt"].min()).days if not bdf["작성일_dt"].isna().all() else 0
         daily = total / date_range if date_range > 0 else 0
         weekly = daily * 7
 
-        meta = st.session_state["blog_meta"].get(bid, {})
         row = {
             "블로그ID": bid,
+            "상태": "정상",
             "전체 글 수": meta.get("total", "-"),
             "첫 포스팅일": meta.get("first_date", "-"),
             f"{period_label} 글 수": total,
@@ -325,7 +359,11 @@ elif st.session_state["crawl_results"]:
 
     st.markdown("---")
 
-    # ── 블로그별 상세 탭 ──
+    # ── 블로그별 상세 탭 (존재하는 블로그만) ──
+    blog_ids = list(results.keys())
+    if not blog_ids:
+        st.info("검사 가능한 블로그가 없습니다.")
+        st.stop()
     tabs = st.tabs(blog_ids)
 
     for tab, blog_id in zip(tabs, blog_ids):
