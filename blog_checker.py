@@ -81,6 +81,7 @@ def parse_naver_date(date_str):
 def crawl_blog_posts(blog_id, progress_callback=None):
     """블로그의 전체 글 목록 크롤링"""
     posts = []
+    seen_lognos = set()
     page = 1
     count_per_page = 30
 
@@ -106,7 +107,13 @@ def crawl_blog_posts(blog_id, progress_callback=None):
             if not titles:
                 break
 
+            new_count = 0
             for t, d, l in zip(titles, dates, lognos):
+                if not l or l in seen_lognos:
+                    continue
+                seen_lognos.add(l)
+                new_count += 1
+
                 title = unquote(t.replace("+", " "))
                 title = re.sub(r"<[^>]+>", "", title)
 
@@ -125,6 +132,10 @@ def crawl_blog_posts(blog_id, progress_callback=None):
 
             if progress_callback:
                 progress_callback(len(posts))
+
+            # 새로운 글이 하나도 없으면 (중복 페이지) 중단
+            if new_count == 0:
+                break
 
             if len(titles) < count_per_page:
                 break
