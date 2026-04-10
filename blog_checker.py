@@ -370,7 +370,7 @@ elif st.session_state["crawl_results"]:
             # ── 월별 포스팅 차트 ──
             st.markdown("### 월별 포스팅 수")
             if not df["작성일_dt"].isna().all():
-                monthly = df.set_index("작성일_dt").resample("M").size().reset_index(name="포스팅 수")
+                monthly = df.set_index("작성일_dt").resample("ME").size().reset_index(name="포스팅 수")
                 monthly["월"] = monthly["작성일_dt"].dt.strftime("%Y-%m")
                 st.bar_chart(monthly.set_index("월")["포스팅 수"])
 
