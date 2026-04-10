@@ -21,16 +21,38 @@ if "blog_meta" not in st.session_state:
 # ─── 유틸 함수 ───
 
 def extract_blog_id(url):
-    """블로그 URL 또는 글 URL에서 블로그 ID 추출. blog.naver.com이 아니면 None"""
+    """블로그 URL, blog.naver.com/id, 또는 블로그 ID만 입력해도 추출.
+
+    지원 형식:
+      - https://blog.naver.com/blogid/포스트번호
+      - http://blog.naver.com/blogid
+      - blog.naver.com/blogid
+      - blogid  (영문·숫자·_ 로만 구성된 경우)
+    """
+    import re
+
     url = url.strip()
     if not url:
         return None
+
+    # scheme이 없으면 붙여서 urlparse가 hostname을 인식하도록 함
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+
     parsed = urlparse(url)
-    if parsed.hostname not in ("blog.naver.com", "m.blog.naver.com"):
+
+    if parsed.hostname in ("blog.naver.com", "m.blog.naver.com"):
+        parts = [p for p in parsed.path.split("/") if p]
+        if parts:
+            return parts[0]
         return None
-    parts = [p for p in parsed.path.split("/") if p]
-    if parts:
-        return parts[0]
+
+    # hostname이 blog.naver.com이 아닌 경우:
+    # 원본 입력이 순수 블로그 ID인지 확인 (영문, 숫자, _만 허용)
+    raw = url.replace("https://", "").strip()
+    if re.fullmatch(r"[A-Za-z0-9_]+", raw):
+        return raw
+
     return None
 
 
@@ -159,8 +181,8 @@ def get_period_label(period_option):
 
 st.sidebar.header("블로그 주소 입력")
 urls_input = st.sidebar.text_area(
-    "한 줄에 하나씩 입력 (글 주소도 OK)",
-    placeholder="https://blog.naver.com/blogid1\nhttps://blog.naver.com/blogid2/12345678",
+    "한 줄에 하나씩 입력 (블로그 ID만 넣어도 OK)",
+    placeholder="https://blog.naver.com/blogid1\nblog.naver.com/blogid2\nblogid3",
     height=150,
 )
 period_option = st.sidebar.selectbox(
