@@ -151,11 +151,11 @@ def crawl_blog_posts(blog_id, progress_callback=None):
 
 
 def check_exposure(title, blog_id):
-    """네이버 검색에서 해당 블로그 글이 노출되는지 확인"""
+    """네이버 블로그탭 검색에서 해당 블로그 글이 노출되는지 확인"""
     encoded_query = quote(f'"{title}"')
     search_url = (
         f"https://search.naver.com/search.naver"
-        f"?ssc=tab.nx.all&where=nexearch&query={encoded_query}&sm=tab_dgs&qdt=1"
+        f"?ssc=tab.blog.all&sm=tab_jum&query={encoded_query}&qdt=1"
     )
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -478,7 +478,7 @@ elif st.session_state["crawl_results"] or st.session_state["blog_meta"]:
                         exposed = check_exposure(post["제목"], blog_id)
                         post["노출여부"] = "노출" if exposed else "미노출"
                         encoded_query = quote(f'"{post["제목"]}"')
-                        post["검색확인"] = f"https://search.naver.com/search.naver?ssc=tab.nx.all&where=nexearch&query={encoded_query}&sm=tab_dgs&qdt=1"
+                        post["검색확인"] = f"https://search.naver.com/search.naver?ssc=tab.blog.all&sm=tab_jum&query={encoded_query}&qdt=1"
                         progress_bar.progress((i + 1) / len(posts))
                         time.sleep(1.5)
 
