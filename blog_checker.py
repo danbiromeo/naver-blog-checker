@@ -292,8 +292,8 @@ if not st.session_state["crawl_results"]:
         "전체 글 수": [135, 80],
         "첫 포스팅일": ["2025-01-15", "2024-11-03"],
         "기간 글 수": [13, 5],
-        "일당 빈도": [1.9, 0.7],
-        "주당 빈도": [13.5, 5.0],
+        "일평균(활동일)": [1.9, 1.3],
+        "일평균(기간)": [0.9, 0.3],
         "노출": ["-", 3],
         "미노출": ["-", 2],
         "노출률(%)": ["-", 60.0],
@@ -321,8 +321,8 @@ elif st.session_state["crawl_results"] or st.session_state["blog_meta"]:
                 "전체 글 수": 0,
                 "첫 포스팅일": "-",
                 f"{period_label} 글 수": 0,
-                "일당 빈도": "-",
-                "주당 빈도": "-",
+                "일평균(활동일)": "-",
+                "일평균(기간)": "-",
                 "노출": "-",
                 "미노출": "-",
                 "노출률(%)": "-",
@@ -334,9 +334,19 @@ elif st.session_state["crawl_results"] or st.session_state["blog_meta"]:
             continue
         bdf["작성일_dt"] = pd.to_datetime(bdf["작성일"], errors="coerce")
         total = len(bdf)
-        date_range = (bdf["작성일_dt"].max() - bdf["작성일_dt"].min()).days if not bdf["작성일_dt"].isna().all() else 0
-        daily = total / date_range if date_range > 0 else 0
-        weekly = daily * 7
+
+        # 글쓴날 기준 빈도 (작성 강도)
+        active_days = bdf["작성일_dt"].dt.date.nunique() if not bdf["작성일_dt"].isna().all() else 0
+        daily_active = total / active_days if active_days > 0 else 0
+
+        # 기간 기준 빈도 (성실도)
+        period_days_map = {"최근 7일": 7, "최근 15일": 15, "최근 1달": 30, "최근 3달": 90, "전체": None}
+        p_days = period_days_map.get(st.session_state.get("period_option", "최근 15일"))
+        if p_days is None:
+            # "전체"인 경우 글이 있는 범위 사용
+            date_range = (bdf["작성일_dt"].max() - bdf["작성일_dt"].min()).days if not bdf["작성일_dt"].isna().all() else 0
+            p_days = date_range if date_range > 0 else 1
+        daily_period = total / p_days if p_days > 0 else 0
 
         row = {
             "블로그ID": bid,
@@ -344,8 +354,8 @@ elif st.session_state["crawl_results"] or st.session_state["blog_meta"]:
             "전체 글 수": meta.get("total", "-"),
             "첫 포스팅일": meta.get("first_date", "-"),
             f"{period_label} 글 수": total,
-            "일당 빈도": round(daily, 1),
-            "주당 빈도": round(weekly, 1),
+            "일평균(활동일)": round(daily_active, 1),
+            "일평균(기간)": round(daily_period, 1),
         }
 
         if bid in st.session_state["exposure_done"]:
@@ -424,19 +434,20 @@ elif st.session_state["crawl_results"] or st.session_state["blog_meta"]:
 
             # 빈도 계산
             if not df["작성일_dt"].isna().all():
-                date_range = (df["작성일_dt"].max() - df["작성일_dt"].min()).days
-                if date_range > 0:
-                    daily_avg = total / date_range
-                    weekly_avg = daily_avg * 7
-                    monthly_avg = daily_avg * 30
+                active_days = df["작성일_dt"].dt.date.nunique()
+                daily_active = total / active_days if active_days > 0 else 0
 
-                    recent_30 = df[df["작성일_dt"] >= (datetime.now() - timedelta(days=30))]
+                period_days_map = {"최근 7일": 7, "최근 15일": 15, "최근 1달": 30, "최근 3달": 90, "전체": None}
+                p_days = period_days_map.get(st.session_state.get("period_option", "최근 15일"))
+                if p_days is None:
+                    date_range = (df["작성일_dt"].max() - df["작성일_dt"].min()).days
+                    p_days = date_range if date_range > 0 else 1
+                daily_period = total / p_days if p_days > 0 else 0
 
-                    col5, col6, col7, col8 = st.columns(4)
-                    col5.metric("일당 평균", f"{daily_avg:.1f}회")
-                    col6.metric("주당 평균", f"{weekly_avg:.1f}회")
-                    col7.metric("월당 평균", f"{monthly_avg:.1f}회")
-                    col8.metric("최근 30일", f"{len(recent_30)}개")
+                col5, col6, col7 = st.columns(3)
+                col5.metric("일평균(활동일)", f"{daily_active:.1f}회")
+                col6.metric("일평균(기간)", f"{daily_period:.1f}회")
+                col7.metric("활동일 수", f"{active_days}일")
 
             # ── 월별 포스팅 차트 ──
             st.markdown("### 월별 포스팅 수")
