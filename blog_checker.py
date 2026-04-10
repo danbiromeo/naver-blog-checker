@@ -21,11 +21,13 @@ if "blog_meta" not in st.session_state:
 # ─── 유틸 함수 ───
 
 def extract_blog_id(url):
-    """블로그 URL 또는 글 URL에서 블로그 ID 추출"""
+    """블로그 URL 또는 글 URL에서 블로그 ID 추출. blog.naver.com이 아니면 None"""
     url = url.strip()
     if not url:
         return None
     parsed = urlparse(url)
+    if parsed.hostname not in ("blog.naver.com", "m.blog.naver.com"):
+        return None
     parts = [p for p in parsed.path.split("/") if p]
     if parts:
         return parts[0]
