@@ -12,9 +12,11 @@ st.title("네이버 블로그 검사기")
 
 # ─── session_state 초기화 ───
 if "crawl_results" not in st.session_state:
-    st.session_state["crawl_results"] = {}  # {blog_id: [posts]}
+    st.session_state["crawl_results"] = {}  # {blog_id: [posts]} (기간 필터링된)
 if "exposure_done" not in st.session_state:
     st.session_state["exposure_done"] = set()  # 노출 검사 완료된 blog_id
+if "blog_meta" not in st.session_state:
+    st.session_state["blog_meta"] = {}  # {blog_id: {"total": N, "first_date": "YYYY-MM-DD"}}
 
 # ─── 유틸 함수 ───
 
@@ -185,6 +187,7 @@ if freq_button:
             # 기존 결과 초기화
             st.session_state["crawl_results"] = {}
             st.session_state["exposure_done"] = set()
+            st.session_state["blog_meta"] = {}
 
             for blog_id in blog_ids:
                 status_text = st.empty()
@@ -201,6 +204,17 @@ if freq_button:
                     continue
 
                 total_posts = len(posts)
+
+                # 첫 포스팅일 계산
+                all_dates = [pd.to_datetime(p["작성일"], errors="coerce") for p in posts]
+                valid_dates = [d for d in all_dates if pd.notna(d)]
+                first_date = min(valid_dates).strftime("%Y-%m-%d") if valid_dates else "-"
+
+                st.session_state["blog_meta"][blog_id] = {
+                    "total": total_posts,
+                    "first_date": first_date,
+                }
+
                 filtered = filter_by_period(posts, period_option)
                 label = get_period_label(period_option)
 
@@ -217,7 +231,29 @@ if freq_button:
 
 # ─── 결과 표시 ───
 
-if st.session_state["crawl_results"]:
+if not st.session_state["crawl_results"]:
+    st.markdown("### 사용 방법")
+    st.markdown("""
+1. **왼쪽 사이드바**에 네이버 블로그 주소를 입력하세요 (여러 개 가능)
+2. **검사 기간**을 선택하세요
+3. **📊 빈도 검사**를 눌러 포스팅 빈도를 확인하세요 (빠름)
+4. 원하는 블로그의 탭에서 **🔍 노출 검사**를 실행하세요 (선택적, 느림)
+""")
+    st.markdown("#### 결과 예시")
+    example_data = {
+        "블로그ID": ["blogid1", "blogid2"],
+        "전체 글 수": [135, 80],
+        "첫 포스팅일": ["2025-01-15", "2024-11-03"],
+        "기간 글 수": [13, 5],
+        "일당 빈도": [1.9, 0.7],
+        "주당 빈도": [13.5, 5.0],
+        "노출": ["-", 3],
+        "미노출": ["-", 2],
+        "노출률(%)": ["-", 60.0],
+    }
+    st.dataframe(pd.DataFrame(example_data), use_container_width=True, hide_index=True)
+
+elif st.session_state["crawl_results"]:
     results = st.session_state["crawl_results"]
     blog_ids = list(results.keys())
     period_label = get_period_label(st.session_state.get("period_option", "최근 15일"))
@@ -233,8 +269,11 @@ if st.session_state["crawl_results"]:
         daily = total / date_range if date_range > 0 else 0
         weekly = daily * 7
 
+        meta = st.session_state["blog_meta"].get(bid, {})
         row = {
             "블로그ID": bid,
+            "전체 글 수": meta.get("total", "-"),
+            "첫 포스팅일": meta.get("first_date", "-"),
             f"{period_label} 글 수": total,
             "일당 빈도": round(daily, 1),
             "주당 빈도": round(weekly, 1),
